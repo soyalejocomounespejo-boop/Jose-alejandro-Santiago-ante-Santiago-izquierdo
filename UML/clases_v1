@@ -1,0 +1,158 @@
+## Diagrama UML - Versión 1 (con patrones de diseño)
+
+```mermaid
+classDiagram
+    direction TB
+
+    %% ===== MODELO =====
+    class Producto {
+        <<struct>>
+        +STOCK_MINIMO$ int = 5
+        +string codigo
+        +string nombre
+        +string tipo
+        +double precio
+        +int stock
+        +hayStock(int cantidad) bool
+        +descontar(int cantidad) void
+        +stockBajo() bool
+    }
+
+    class DetalleVenta {
+        <<struct>>
+        +string codigoProducto
+        +string nombreProducto
+        +int cantidad
+        +double precioUnitario
+        +double subtotal
+    }
+
+    class Venta {
+        <<struct>>
+        +int numero
+        +vector~DetalleVenta~ detalles
+        +string formaPago
+        +double subtotal
+        +double descuento
+        +double iva
+        +double cargo
+        +double total
+    }
+
+    class ItemCarrito {
+        <<struct>>
+        +string codigo
+        +int cantidad
+    }
+
+    %% ===== STRATEGY =====
+    class PoliticaPago {
+        <<abstract>>
+        +nombre() string
+        +descripcion() string
+        +descuento(double subtotal) double
+        +cargo() double
+    }
+
+    class PagoEfectivo {
+        +nombre() string
+        +descripcion() string
+        +descuento(double subtotal) double
+        +cargo() double
+    }
+
+    class PagoTarjeta {
+        +nombre() string
+        +descripcion() string
+        +descuento(double subtotal) double
+        +cargo() double
+    }
+
+    class PagoTransferencia {
+        +nombre() string
+        +descripcion() string
+        +descuento(double subtotal) double
+        +cargo() double
+    }
+
+    %% ===== FACTORY METHOD =====
+    class CreadorPago {
+        <<abstract>>
+        +crearPolitica() PoliticaPago
+    }
+
+    class CreadorEfectivo {
+        +crearPolitica() PoliticaPago
+    }
+
+    class CreadorTarjeta {
+        +crearPolitica() PoliticaPago
+    }
+
+    class CreadorTransferencia {
+        +crearPolitica() PoliticaPago
+    }
+
+    %% ===== FACADE =====
+    class Caja {
+        <<Facade>>
+        +IVA$ double = 0.19
+        -vector~Producto~ productos
+        -vector~Venta~ ventas
+        -vector~CreadorPago~ creadores
+        -int siguienteNumeroVenta
+        +registrarMedioPago(CreadorPago creador) void
+        +inventario() vector~Producto~
+        +historial() vector~Venta~
+        +buscar(string codigo) Producto
+        +validarCodigo(string codigo) string
+        +registrarProducto(Producto nuevo) string
+        +formasDePago() vector~string~
+        +registrarVenta(vector~ItemCarrito~ carrito, int opcionPago) Venta
+        +productosConStockBajo() vector~Producto~
+        +alertasDeVenta(Venta venta) vector~Producto~
+        -localizar(string codigo) Producto
+    }
+
+    %% ===== CONSOLA (cliente) =====
+    class Consola {
+        <<módulo>>
+        +pantallaRegistrarProducto(Caja caja) void
+        +pantallaVenta(Caja caja) void
+        +pantallaReporte(Caja caja) void
+        +imprimirInventario(Caja caja) void
+        +imprimirResumen(Venta venta) void
+        +mostrarMenu() void
+        +cargarProductosDeEjemplo(Caja caja) void
+        +leerEntero(string mensaje) int
+        +leerDouble(string mensaje) double
+        +leerTexto(string mensaje) string
+        +esFin(string texto) bool
+    }
+
+    %% ===== RELACIONES =====
+    PoliticaPago <|-- PagoEfectivo
+    PoliticaPago <|-- PagoTarjeta
+    PoliticaPago <|-- PagoTransferencia
+
+    CreadorPago <|-- CreadorEfectivo
+    CreadorPago <|-- CreadorTarjeta
+    CreadorPago <|-- CreadorTransferencia
+
+    CreadorPago ..> PoliticaPago : crea
+    CreadorEfectivo ..> PagoEfectivo : crea
+    CreadorTarjeta ..> PagoTarjeta : crea
+    CreadorTransferencia ..> PagoTransferencia : crea
+
+    Caja *-- "0..*" Producto : productos
+    Caja *-- "0..*" Venta : ventas
+    Caja o-- "1..*" CreadorPago : creadores
+    Caja ..> PoliticaPago : usa
+    Caja ..> ItemCarrito : recibe
+    Venta *-- "1..*" DetalleVenta : detalles
+    Consola ..> Caja : usa
+
+    note for PoliticaPago "Patrón STRATEGY (comportamiento)<br/>Efectivo: sin descuento<br/>Tarjeta: 3% de descuento<br/>Transferencia: 3% + cargo fijo $800"
+    note for CreadorPago "Patrón FACTORY METHOD (creacional)<br/>Cada creador concreto decide<br/>qué política de pago instanciar"
+    note for Caja "Patrón FACADE (estructural)<br/>Oculta validar, crear la política,<br/>calcular, descontar stock y guardar<br/>detrás de registrarVenta()"
+```
