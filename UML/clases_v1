@@ -1,25 +1,21 @@
-## Diagrama UML - Versión 1 (con patrones de diseño)
-
 ```mermaid
 classDiagram
-    direction TB
+    direction LR
 
     %% ===== MODELO =====
     class Producto {
-        <<struct>>
-        +STOCK_MINIMO$ int = 5
         +string codigo
         +string nombre
         +string tipo
         +double precio
         +int stock
-        +hayStock(int cantidad) bool
-        +descontar(int cantidad) void
+        +int STOCK_MINIMO$ = 5
+        +hayStock(cantidad) bool
+        +descontar(cantidad) void
         +stockBajo() bool
     }
 
     class DetalleVenta {
-        <<struct>>
         +string codigoProducto
         +string nombreProducto
         +int cantidad
@@ -28,9 +24,7 @@ classDiagram
     }
 
     class Venta {
-        <<struct>>
         +int numero
-        +vector~DetalleVenta~ detalles
         +string formaPago
         +double subtotal
         +double descuento
@@ -40,45 +34,44 @@ classDiagram
     }
 
     class ItemCarrito {
-        <<struct>>
         +string codigo
         +int cantidad
     }
 
     %% ===== STRATEGY =====
     class PoliticaPago {
-        <<abstract>>
+        <<interface>>
         +nombre() string
         +descripcion() string
-        +descuento(double subtotal) double
+        +descuento(subtotal) double
         +cargo() double
     }
 
     class PagoEfectivo {
         +nombre() string
         +descripcion() string
-        +descuento(double subtotal) double
+        +descuento(subtotal) double
         +cargo() double
     }
 
     class PagoTarjeta {
         +nombre() string
         +descripcion() string
-        +descuento(double subtotal) double
+        +descuento(subtotal) double
         +cargo() double
     }
 
     class PagoTransferencia {
         +nombre() string
         +descripcion() string
-        +descuento(double subtotal) double
+        +descuento(subtotal) double
         +cargo() double
     }
 
     %% ===== FACTORY METHOD =====
     class CreadorPago {
         <<abstract>>
-        +crearPolitica() PoliticaPago
+        +crearPolitica() PoliticaPago*
     }
 
     class CreadorEfectivo {
@@ -96,63 +89,59 @@ classDiagram
     %% ===== FACADE =====
     class Caja {
         <<Facade>>
-        +IVA$ double = 0.19
+        +double IVA$ = 0.19
         -vector~Producto~ productos
         -vector~Venta~ ventas
         -vector~CreadorPago~ creadores
         -int siguienteNumeroVenta
-        +registrarMedioPago(CreadorPago creador) void
+        +registrarMedioPago(creador) void
+        +registrarProducto(nuevo) string
+        +validarCodigo(codigo) string
+        +buscar(codigo) Producto*
+        +formasDePago() vector~string~
+        +registrarVenta(carrito, opcionPago) Venta
+        +productosConStockBajo() vector~Producto*~
+        +alertasDeVenta(venta) vector~Producto*~
         +inventario() vector~Producto~
         +historial() vector~Venta~
-        +buscar(string codigo) Producto
-        +validarCodigo(string codigo) string
-        +registrarProducto(Producto nuevo) string
-        +formasDePago() vector~string~
-        +registrarVenta(vector~ItemCarrito~ carrito, int opcionPago) Venta
-        +productosConStockBajo() vector~Producto~
-        +alertasDeVenta(Venta venta) vector~Producto~
-        -localizar(string codigo) Producto
+        -localizar(codigo) Producto*
     }
 
-    %% ===== CONSOLA (cliente) =====
     class Consola {
-        <<módulo>>
-        +pantallaRegistrarProducto(Caja caja) void
-        +pantallaVenta(Caja caja) void
-        +pantallaReporte(Caja caja) void
-        +imprimirInventario(Caja caja) void
-        +imprimirResumen(Venta venta) void
-        +mostrarMenu() void
-        +cargarProductosDeEjemplo(Caja caja) void
-        +leerEntero(string mensaje) int
-        +leerDouble(string mensaje) double
-        +leerTexto(string mensaje) string
-        +esFin(string texto) bool
+        <<cliente>>
+        +pantallaRegistrarProducto(caja)
+        +pantallaVenta(caja)
+        +pantallaReporte(caja)
+        +imprimirInventario(caja)
+        +imprimirResumen(venta)
+        +mostrarMenu()
     }
 
     %% ===== RELACIONES =====
-    PoliticaPago <|-- PagoEfectivo
-    PoliticaPago <|-- PagoTarjeta
-    PoliticaPago <|-- PagoTransferencia
+    %% Strategy
+    PoliticaPago <|.. PagoEfectivo
+    PoliticaPago <|.. PagoTarjeta
+    PoliticaPago <|.. PagoTransferencia
 
+    %% Factory Method
     CreadorPago <|-- CreadorEfectivo
     CreadorPago <|-- CreadorTarjeta
     CreadorPago <|-- CreadorTransferencia
-
-    CreadorPago ..> PoliticaPago : crea
     CreadorEfectivo ..> PagoEfectivo : crea
     CreadorTarjeta ..> PagoTarjeta : crea
     CreadorTransferencia ..> PagoTransferencia : crea
+    CreadorPago ..> PoliticaPago : fabrica
 
-    Caja *-- "0..*" Producto : productos
-    Caja *-- "0..*" Venta : ventas
-    Caja o-- "1..*" CreadorPago : creadores
-    Caja ..> PoliticaPago : usa
+    %% Facade
+    Caja "1" o-- "*" CreadorPago : medios de pago
+    Caja "1" *-- "*" Producto : inventario
+    Caja "1" *-- "*" Venta : historial
+    Caja ..> PoliticaPago : usa (Strategy)
     Caja ..> ItemCarrito : recibe
-    Venta *-- "1..*" DetalleVenta : detalles
-    Consola ..> Caja : usa
 
-    note for PoliticaPago "Patrón STRATEGY (comportamiento)<br/>Efectivo: sin descuento<br/>Tarjeta: 3% de descuento<br/>Transferencia: 3% + cargo fijo $800"
-    note for CreadorPago "Patrón FACTORY METHOD (creacional)<br/>Cada creador concreto decide<br/>qué política de pago instanciar"
-    note for Caja "Patrón FACADE (estructural)<br/>Oculta validar, crear la política,<br/>calcular, descontar stock y guardar<br/>detrás de registrarVenta()"
+    %% Modelo
+    Venta "1" *-- "1..*" DetalleVenta : detalles
+
+    %% Cliente
+    Consola ..> Caja : unico punto de acceso
 ```
